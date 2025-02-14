@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 import torch.nn as nn
 import torch
+
 class Model(nn.Module):
     def __init__(self, encoder):
         super(Model, self).__init__()

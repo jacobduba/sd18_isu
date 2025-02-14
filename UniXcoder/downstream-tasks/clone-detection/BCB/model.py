@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. 
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 import torch
 import torch.nn as nn
@@ -25,8 +25,8 @@ class RobertaClassificationHead(nn.Module):
         x = self.dropout(x)
         x = self.out_proj(x)
         return x
-        
-class Model(nn.Module):   
+
+class Model(nn.Module):
     def __init__(self, encoder,config,tokenizer,args):
         super(Model, self).__init__()
         self.encoder = encoder
@@ -34,9 +34,9 @@ class Model(nn.Module):
         self.tokenizer = tokenizer
         self.classifier = RobertaClassificationHead(config)
         self.args = args
-    
-        
-    def forward(self, input_ids=None,labels=None): 
+
+
+    def forward(self, input_ids=None,labels=None):
         input_ids = input_ids.view(-1,self.args.block_size)
         outputs = self.encoder(input_ids,attention_mask=input_ids.ne(1))[0]
         outputs = (outputs * input_ids.ne(1)[:,:,None]).sum(1)/input_ids.ne(1).sum(1)[:,None]
@@ -49,9 +49,3 @@ class Model(nn.Module):
             return loss,cos_sim
         else:
             return cos_sim
-      
-        
- 
-        
-
-

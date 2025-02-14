@@ -7,6 +7,7 @@ setup(
     install_requires=[
         "torch>=1.8.0",
         "numpy>=1.20.0",
+        "fuzzywuzzy>=0.18.0",
         "transformers>=4.6.0"
     ]
 )

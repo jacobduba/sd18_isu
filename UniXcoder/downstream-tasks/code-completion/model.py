@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. 
+# Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
 import torch
@@ -6,10 +6,12 @@ import torch.nn as nn
 import torch
 from torch.autograd import Variable
 import copy
+
+
 class Seq2Seq(nn.Module):
     """
         Build Seqence-to-Sequence.
-        
+
         Parameters:
 
         * `encoder`- encoder of seq2seq model. e.g. roberta
@@ -20,37 +22,40 @@ class Seq2Seq(nn.Module):
         * `sos_id`- start of symbol ids in target for beam search.
         * `eos_id`- end of symbol ids in target for beam search. 
     """
-    def __init__(self, encoder,decoder,config,beam_size=None,max_length=None,sos_id=None,eos_id=None):
+
+    def __init__(self, encoder, decoder, config, beam_size=None, max_length=None, sos_id=None, eos_id=None):
         super(Seq2Seq, self).__init__()
         self.encoder = encoder
-        self.decoder=decoder
-        self.config=config
+        self.decoder = decoder
+        self.config = config
         self.register_buffer(
-            "bias", torch.tril(torch.ones((1024, 1024), dtype=torch.uint8)).view(1,1024, 1024)
+            "bias", torch.tril(torch.ones(
+                (1024, 1024), dtype=torch.uint8)).view(1, 1024, 1024)
         )
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
-        self.lm_head.weight=self.encoder.embeddings.word_embeddings.weight
+        self.lm_head = nn.Linear(
+            config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head.weight = self.encoder.embeddings.word_embeddings.weight
         self.lsm = nn.LogSoftmax(dim=-1)
-        
-        self.beam_size=beam_size
-        self.max_length=max_length
-        self.sos_id=sos_id
-        self.eos_id=eos_id
-        
-                  
+
+        self.beam_size = beam_size
+        self.max_length = max_length
+        self.sos_id = sos_id
+        self.eos_id = eos_id
+
     def tie_weights(self):
         """ Make sure we are sharing the input and output embeddings.
             Export to TorchScript can't handle parameter sharing so we are cloning them instead.
         """
         self._tie_or_clone_weights(self.lm_head,
-                                   self.encoder.embeddings.word_embeddings)        
-        
-    def forward(self, source_ids,train=False): 
+                                   self.encoder.embeddings.word_embeddings)
+
+    def forward(self, source_ids, train=False):
         max_length = source_ids.ne(1).sum(-1).max()
-        source_ids = source_ids[:,:max_length]        
-        if train:  
+        source_ids = source_ids[:, :max_length]
+        if train:
             length = source_ids.size(-1)
-            out = self.decoder(source_ids,attention_mask=self.bias[:,:length,:length]).last_hidden_state
+            out = self.decoder(
+                source_ids, attention_mask=self.bias[:, :length, :length]).last_hidden_state
             lm_logits = self.lm_head(out)
             # Shift so that tokens < n predict n
             active_loss = source_ids[..., 1:].ne(1).view(-1)
@@ -61,50 +66,56 @@ class Seq2Seq(nn.Module):
             loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1))[active_loss],
                             shift_labels.view(-1)[active_loss])
 
-            outputs = loss,loss*active_loss.sum(),active_loss.sum()
+            outputs = loss, loss*active_loss.sum(), active_loss.sum()
             return outputs
         else:
-            #Predict 
-            preds=[]       
-            zero=torch.cuda.LongTensor(1).fill_(0)   
+            # Predict
+            preds = []
+            zero = torch.cuda.LongTensor(1).fill_(0)
             source_len = list(source_ids.ne(1).sum(-1).cpu().numpy())
             length = source_ids.size(-1)
-            encoder_output = self.decoder(source_ids,attention_mask=self.bias[:,:length,:length])
+            encoder_output = self.decoder(
+                source_ids, attention_mask=self.bias[:, :length, :length])
             for i in range(source_ids.shape[0]):
-                context=[[x[i:i+1,:,:source_len[i]].repeat(self.beam_size,1,1,1) for x in y] 
-                         for y in encoder_output.past_key_values]
-                beam = Beam(self.beam_size,self.sos_id,self.eos_id)
-                input_ids=beam.getCurrentState()
-                context_ids = source_ids[i:i+1,:source_len[i]].repeat(self.beam_size,1)
-                out = encoder_output.last_hidden_state[i:i+1,:source_len[i]].repeat(self.beam_size,1,1)
-                for _ in range(self.max_length): 
+                context = [[x[i:i+1, :, :source_len[i]].repeat(self.beam_size, 1, 1, 1) for x in y]
+                           for y in encoder_output.past_key_values]
+                beam = Beam(self.beam_size, self.sos_id, self.eos_id)
+                input_ids = beam.getCurrentState()
+                context_ids = source_ids[i:i+1,
+                                         :source_len[i]].repeat(self.beam_size, 1)
+                out = encoder_output.last_hidden_state[i:i+1,
+                                                       :source_len[i]].repeat(self.beam_size, 1, 1)
+                for _ in range(self.max_length):
                     if beam.done():
                         break
-                    if _ == 0: 
-                        hidden_states=out[:,-1,:]
+                    if _ == 0:
+                        hidden_states = out[:, -1, :]
                         out = self.lsm(self.lm_head(hidden_states)).data
                         beam.advance(out)
-                        input_ids.data.copy_(input_ids.data.index_select(0, beam.getCurrentOrigin()))
-                        input_ids=beam.getCurrentState()
+                        input_ids.data.copy_(input_ids.data.index_select(
+                            0, beam.getCurrentOrigin()))
+                        input_ids = beam.getCurrentState()
                     else:
                         length = context_ids.size(-1)+input_ids.size(-1)
-                        out = self.decoder(input_ids,attention_mask=self.bias[:,context_ids.size(-1):length,:length],
+                        out = self.decoder(input_ids, attention_mask=self.bias[:, context_ids.size(-1):length, :length],
                                            past_key_values=context).last_hidden_state
-                        hidden_states=out[:,-1,:]
+                        hidden_states = out[:, -1, :]
                         out = self.lsm(self.lm_head(hidden_states)).data
                         beam.advance(out)
-                        input_ids.data.copy_(input_ids.data.index_select(0, beam.getCurrentOrigin()))
-                        input_ids=torch.cat((input_ids,beam.getCurrentState()),-1)
-                hyp= beam.getHyp(beam.getFinal())
-                pred=beam.buildTargetTokens(hyp)[:self.beam_size]
-                pred=[torch.cat([x.view(-1) for x in p]+[zero]*(self.max_length-len(p))).view(1,-1) for p in pred]
-                preds.append(torch.cat(pred,0).unsqueeze(0))
-                
-            preds=torch.cat(preds,0)    
+                        input_ids.data.copy_(input_ids.data.index_select(
+                            0, beam.getCurrentOrigin()))
+                        input_ids = torch.cat(
+                            (input_ids, beam.getCurrentState()), -1)
+                hyp = beam.getHyp(beam.getFinal())
+                pred = beam.buildTargetTokens(hyp)[:self.beam_size]
+                pred = [torch.cat([x.view(-1) for x in p]+[zero] *
+                                  (self.max_length-len(p))).view(1, -1) for p in pred]
+                preds.append(torch.cat(pred, 0).unsqueeze(0))
 
-            return preds   
-        
-        
+            preds = torch.cat(preds, 0)
+
+            return preds
+
 
 class Beam(object):
     def __init__(self, size, sos, eos):
@@ -168,7 +179,6 @@ class Beam(object):
         self.prevKs.append(prevK)
         self.nextYs.append((bestScoresId - prevK * numWords))
 
-
         for i in range(self.nextYs[-1].size(0)):
             if self.nextYs[-1][i] in self._eos:
                 s = self.scores[i]
@@ -179,37 +189,37 @@ class Beam(object):
             self.eosTop = True
 
     def done(self):
-        return self.eosTop and len(self.finished) >=self.size
+        return self.eosTop and len(self.finished) >= self.size
 
     def getFinal(self):
         if len(self.finished) == 0:
             self.finished.append((self.scores[0], len(self.nextYs) - 1, 0))
         self.finished.sort(key=lambda a: -a[0])
         if len(self.finished) != self.size:
-            unfinished=[]
+            unfinished = []
             for i in range(self.nextYs[-1].size(0)):
                 if self.nextYs[-1][i] not in self._eos:
                     s = self.scores[i]
-                    unfinished.append((s, len(self.nextYs) - 1, i)) 
+                    unfinished.append((s, len(self.nextYs) - 1, i))
             unfinished.sort(key=lambda a: -a[0])
-            self.finished+=unfinished[:self.size-len(self.finished)]
+            self.finished += unfinished[:self.size-len(self.finished)]
         return self.finished[:self.size]
 
     def getHyp(self, beam_res):
         """
         Walk back to construct the full hypothesis.
         """
-        hyps=[]
-        for _,timestep, k in beam_res:
+        hyps = []
+        for _, timestep, k in beam_res:
             hyp = []
             for j in range(len(self.prevKs[:timestep]) - 1, -1, -1):
                 hyp.append(self.nextYs[j+1][k])
                 k = self.prevKs[j][k]
             hyps.append(hyp[::-1])
         return hyps
-    
+
     def buildTargetTokens(self, preds):
-        sentence=[]
+        sentence = []
         for pred in preds:
             tokens = []
             for tok in pred:
@@ -218,5 +228,3 @@ class Beam(object):
                     break
             sentence.append(tokens)
         return sentence
-        
-
