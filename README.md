@@ -33,7 +33,7 @@ The implementation leverages UniXcoder for traditional code search capabilities 
 ### Running
 Run the code search application:
 ```bash
-python code_search/run.py
+python CodeSearch/run.py
 ```
 
 ## Contributing
