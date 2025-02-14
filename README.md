@@ -12,7 +12,6 @@ The implementation leverages UniXcoder for traditional code search capabilities 
 - Diego Perez (joceo@iastate.edu)
 
 ## Getting Started
-*Instructions for setting up and running the project will be added as development progresses*
 
 ### Prerequisites
 - UV package installer ([Installation guide](https://github.com/astral-sh/uv))
