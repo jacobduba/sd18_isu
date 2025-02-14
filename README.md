@@ -15,10 +15,26 @@ The implementation leverages UniXcoder for traditional code search capabilities 
 *Instructions for setting up and running the project will be added as development progresses*
 
 ### Prerequisites
-*Prerequisites will be specified as development progresses*
+- UV package installer ([Installation guide](https://github.com/astral-sh/uv))
 
 ### Installation
-*Installation steps will be provided once the initial implementation is complete*
+1. Create and activate UV environment:
+   ```bash
+   uv venv
+   source .venv/bin/activate
+   ```
+2. Install local UniXcoder package:
+   ```bash
+   cd UniXcoder/
+   uv pip install -e .
+   cd ../
+   ```
+
+### Running
+Run the code search application:
+```bash
+python code_search/run.py
+```
 
 ## Contributing
 1. Clone the repository
