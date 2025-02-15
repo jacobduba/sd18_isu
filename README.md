@@ -28,18 +28,20 @@ The implementation leverages UniXcoder for traditional code search capabilities 
    uv pip install -e .
    cd ../
    ```
+3. Install other dependencies
+   ```bash
+   uv pip install -r requirements.txt
+   ```
 
 ### Running
-Run the code search application:
+Run the script that creates the data:
 ```bash
-python CodeSearch/run.py
+python CodeSearch/create_data.py
 ```
-
-## Contributing
-1. Clone the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+Run the code search script:
+```bash
+python CodeSearch/search.py
+```
 
 ## License
 *License information to be added*
