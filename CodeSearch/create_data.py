@@ -1,6 +1,6 @@
 # This file created a .npy file containing embeddings for each code example in a dataset.
 
-import torch
+from typing import List
 from datasets import load_dataset
 from models.unix_coder import Embedding, Pair
 

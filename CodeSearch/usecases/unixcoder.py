@@ -7,8 +7,8 @@ from torch import device as DeviceModel
 # import torch
 
 
-device: DeviceModel = DeviceModel("cuda" if cuda.is_available() else "cpu")
-model = UniXcoder(unix_coder.Model.UNIXCODE_BASE)
+device = DeviceModel("cuda" if cuda.is_available() else "cpu")
+model = UniXcoder(unix_coder.Model.UNIXCODE_BASE.value)
 
 
 def generate_embedding_for_func(dp: DataPoint) -> Pair:
