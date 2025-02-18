@@ -28,7 +28,7 @@ def generate_embedding(snippet: str) -> Pair:
     )
 
 
-def create_code_search_net_dataset(slice_size:int = 200) -> List[DataPoint] | None:
+def create_code_search_net_dataset(slice_size:int = 20) -> List[DataPoint] | None:
     dataset = load_dataset(
         "code_search_net", "python", split="test", trust_remote_code=True
     )
@@ -86,8 +86,12 @@ def process_data(
     # Writing all results to a file in one go
     try:
         with open("data.json", "w") as file:
-            for pair in pairs:
-                json.dump(pair.model_dump_json(), file, indent=4)
-                file.write("\n")  # jsonlines format to keep it line-by-line
+            file.write("[\n")
+            for idx, pair in enumerate(pairs):
+                json.dump(pair.model_dump(), file, indent=4)
+                if idx != len(pairs) - 1:
+                    file.write(",")
+                file.write("\n")
+            file.write("\n]")
     except Exception as e:
         print(f"Error writing to file: {e}")
