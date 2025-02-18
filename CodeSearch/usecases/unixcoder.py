@@ -26,11 +26,11 @@ def generate_embedding_for_nl(dp: DataPoint) -> Pair:
 def generate_embeddings(snippet: str) -> Pair:
     tokens_ids = model.tokenize([snippet], max_length=512, mode="<encoder-only>")
     source_ids = tensor(tokens_ids).to(device)
-    tokens_embeddings, nl_embedding = model(source_ids)
+    tokens_embeddings, _ = model(source_ids)
 
     return Pair(
-        code_embedding=Embedding(vector=tokens_embeddings.squeeze().tolist()),
-        comment_embedding=Embedding(vector=nl_embedding.squeeze().tolist()),
+        code_string=snippet,
+        embedding=Embedding(vector=tokens_embeddings.squeeze().tolist()),
     )
 
 
@@ -47,17 +47,17 @@ def create_code_search_net_dataset() -> List[DataPoint] | None:
         try:
             data_point = DataPoint(
                 id=idx,
-                repository_name=item.get("repo", ""),
-                func_path_in_repository=item.get("path", ""),
+                repository_name=item.get("repository_name", ""),
+                func_path_in_repository=item.get("func_path_in_repository", ""),
                 func_name=item.get("func_name", ""),
-                whole_func_string=item.get("code", ""),
+                whole_func_string=item.get("whole_func_string", ""),
                 language=item.get("language", ""),
-                func_code_string=item.get("code", ""),
-                func_code_tokens=item.get("code_tokens", []),
-                func_documentation_string=item.get("docstring", ""),
-                func_documentation_string_tokens=item.get("docstring_tokens", []),
+                func_code_string=item.get("func_code_string", ""),
+                func_code_tokens=item.get("func_code_tokens", []),
+                func_documentation_string=item.get("func_documentation_string", ""),
+                func_documentation_string_tokens=item.get("func_documentation_string_tokens", []),
                 split_name="test",
-                func_code_url=item.get("url", ""),
+                func_code_url=item.get("func_code_url", ""),
             )
             data_points.append(data_point)
         except Exception as e:
@@ -67,8 +67,8 @@ def create_code_search_net_dataset() -> List[DataPoint] | None:
 
 
 # Move the process_data_point function outside of process_data to make it callable by threads
-def process_data_point(dp: DataPoint) -> List[Pair]:
-    return [generate_embedding_for_func(dp), generate_embedding_for_nl(dp)]
+def process_data_point(dp: DataPoint) -> Pair:
+    return generate_embedding_for_func(dp)
 
 
 def process_data(data_points: List[DataPoint]) -> None:
@@ -90,7 +90,7 @@ def process_data(data_points: List[DataPoint]) -> None:
                 dp = future_to_dp[future]
                 try:
                     result = future.result()
-                    pairs.extend(result)
+                    pairs.append(result)
                 except Exception as e:
                     print(f"Error generating embedding for DataPoint ID {dp.id}: {e}")
 
