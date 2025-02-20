@@ -1,3 +1,6 @@
+datasets
 torch
 numpy
 dataset
+typing
+pydantic
