@@ -9,16 +9,20 @@ from models.unix_coder import Embedding
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = UniXcoder("microsoft/unixcoder-base")
 
-processed_data = np.array([])
+code_segment_list = []
+embedding_list = np.array([])
 
 
-def get_processed_data() -> np.array:
+def get_processed_data():
     try:
         with open('data.json', 'r') as file:
             # contains objects that have an array of numbers and a code string
-            # I couldn't download the data to check the actual structure so for now this is it
-            processed_data = json.load(file)
-            return processed_data
+            json_data = json.load(file)
+
+            # I couldn't download the data to check the actual structure so I think it's something like this:
+            for object in enumerate(json_data):
+                 code_segment_list.append(object[0])
+                 np.append(embedding_list, object[1])
     except FileNotFoundError:
         print("The data.json file does not exist")
     except json.JSONDecodeError:
@@ -39,11 +43,11 @@ def process_user_code_segment(user_input: str) -> torch.Tensor:
 
 def get_top_ten(user_input: str) -> dict:
     code_segment_map = {}
-    for index, values in enumerate(processed_data):
+    for index, values in enumerate(embedding_list):
         # calculate similarity with the dot product and store the value
         # code_segment_map[index] = np.dot(values, process_user_code_segment(user_input))
 
-        # I'm not sure if dot product is the same, but this was given in example code as a similarity check function
+        # I'm not sure if dot product is desired, but this was given in example code as a similarity check function
         code_segment_map[index] = torch.einsum("ac,bc->ab", process_user_code_segment(user_input), torch.nn.functional.normalize(values, p=2, dim=1))
 
     # get top 10 most similar code segments
@@ -52,8 +56,10 @@ def get_top_ten(user_input: str) -> dict:
 
 if __name__ == "__main__":
     user_input = input("Enter your code description: ")
+    get_processed_data()
     processed_user_code = process_user_code_segment(user_input)
     top_ten = get_top_ten(process_user_code_segment)
+    counter = 0
     for index in top_ten:
-        print(f"{index}: {processed_data[index]} with a similarity score of {top_ten[index]}")
-    
+        print(f"{counter}: {code_segment_list[index]} with a similarity score of {top_ten[index]}")
+        counter += 1
