@@ -1,12 +1,11 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Optional
+from typing import List
 
 from datasets import load_dataset
 from datasets.arrow_dataset import os
-from models import unix_coder
 from models.code_search_net import DataPoint
-from models.unix_coder import Embedding, Pair
+from models.unix_coder import Pair
 from torch import cuda, tensor
 from torch import device as DeviceModel
 from tqdm import tqdm
@@ -14,21 +13,25 @@ from tqdm import tqdm
 from unixcoder import UniXcoder
 
 device = DeviceModel("cuda" if cuda.is_available() else "cpu")
-model = UniXcoder(unix_coder.Model.UNIXCODE_BASE.value)
+model = UniXcoder("microsoft/unixcoder-base")
 
-
-def generate_embedding(snippet: str) -> Pair:
-    tokens_ids = model.tokenize([snippet], max_length=512, mode="<encoder-only>")
+def generate_embedding(snippet_for_model: str, code_string: str) -> Pair:
+    tokens_ids = model.tokenize(
+        [snippet_for_model], max_length=512, mode="<encoder-only>"
+    )
     source_ids = tensor(tokens_ids).to(device)
-    tokens_embeddings, _ = model(source_ids)
+    _, nl_embedding = model(source_ids)
+
+    # Convert the 2D tensor to a flat list
+    flattened_embedding = nl_embedding[0].tolist()
 
     return Pair(
-        code_string=snippet,
-        embedding=Embedding(vector=tokens_embeddings.squeeze().tolist()),
+        code_string=code_string,
+        comment_embedding=flattened_embedding,
     )
 
 
-def create_code_search_net_dataset(slice_size:int = 20) -> List[DataPoint] | None:
+def create_code_search_net_dataset(slice_size: int = 20) -> List[DataPoint] | None:
     dataset = load_dataset(
         "code_search_net", "python", split="test", trust_remote_code=True
     )
@@ -65,13 +68,12 @@ def create_code_search_net_dataset(slice_size:int = 20) -> List[DataPoint] | Non
 
 def process_data_point(dp: DataPoint) -> Pair:
     return generate_embedding(
-        dp.whole_func_string
+        dp.func_documentation_string,
+        dp.whole_func_string,
     )  # or change to generate_embedding_for_nl if needed
 
 
-def process_data(
-        data_points: List[DataPoint]
-        ) -> None:
+def process_data(data_points: List[DataPoint]) -> None:
     pairs: List[Pair] = []
 
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
