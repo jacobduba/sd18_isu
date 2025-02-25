@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Union
+from typing import List 
 from pydantic import BaseModel
 
 
@@ -8,9 +8,9 @@ class Model(str, Enum):
 
 
 class Embedding(BaseModel):
-    vector: Union[List[List[float]], List[float]]
+    vector: List[List[float]]
 
 
 class Pair(BaseModel):
     code_string: str
-    embedding: Embedding
+    comment_embedding: Embedding
