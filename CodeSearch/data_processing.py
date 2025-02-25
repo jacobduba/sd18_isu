@@ -4,9 +4,8 @@ from typing import List
 
 from datasets import load_dataset
 from datasets.arrow_dataset import os
-from models import unix_coder
 from models.code_search_net import DataPoint
-from models.unix_coder import Embedding, Pair
+from models.unix_coder import Pair
 from torch import cuda, tensor
 from torch import device as DeviceModel
 from tqdm import tqdm
@@ -14,8 +13,7 @@ from tqdm import tqdm
 from unixcoder import UniXcoder
 
 device = DeviceModel("cuda" if cuda.is_available() else "cpu")
-model = UniXcoder(unix_coder.Model.UNIXCODE_BASE.value)
-
+model = UniXcoder("microsoft/unixcoder-base")
 
 def generate_embedding(snippet_for_model: str, code_string: str) -> Pair:
     tokens_ids = model.tokenize(
@@ -24,9 +22,12 @@ def generate_embedding(snippet_for_model: str, code_string: str) -> Pair:
     source_ids = tensor(tokens_ids).to(device)
     _, nl_embedding = model(source_ids)
 
+    # Convert the 2D tensor to a flat list
+    flattened_embedding = nl_embedding[0].tolist()
+
     return Pair(
         code_string=code_string,
-        comment_embedding=Embedding(vector=nl_embedding),
+        comment_embedding=flattened_embedding,
     )
 
 
