@@ -5,9 +5,9 @@ help:
 	@echo "Commands:"
 	@echo "  make venv      - Create a virtual environment"
 	@echo "  make install   - Install dependencies"
-	@echo "  make create       - Run the create_data.py script"
+	@echo "  make create    - Run the create_data.py script"
 	@echo "  make clean     - Remove temporary files"
-	@echo "  make search     - Remove temporary files"
+	@echo "  make search    - Remove temporary files"
 venv:
 	$(PYTHON) -m venv $(VENV)
 install: venv
