@@ -30,7 +30,7 @@ def generate_embedding(snippet_for_model: str, code_string: str) -> Pair:
     )
 
 
-def create_code_search_net_dataset(slice_size:int = 20) -> List[DataPoint] | None:
+def create_code_search_net_dataset(slice_size: int = 20) -> List[DataPoint] | None:
     dataset = load_dataset(
         "code_search_net", "python", split="test", trust_remote_code=True
     )
