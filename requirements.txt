@@ -4,3 +4,4 @@ numpy
 dataset
 typing
 pydantic
+openai
