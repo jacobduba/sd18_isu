@@ -1,8 +1,7 @@
 from search_processing import get_processed_data, process_user_code_segment, get_top_ten
 import requests
 from openai import OpenAI
-import asyncio
-import aiohttp
+import time
 import os
 
 # Set OpenRouter API Key & Base URL
@@ -14,12 +13,17 @@ client = OpenAI(
 if not client.api_key:
     raise ValueError("OpenRouter API key is missing. Set it in your environment variables.")
 
-def evaluate_snippet(user_input: str, snippet: str):
+def evaluate_snippet(user_input: str, snippet: str, retries=3):
     """ Sends one code snippet to DeepSeek via OpenRouter API and retrieves a score (0-10). """
-    
+
     prompt = f"""
-    You are an AI that scores code snippets based on their relevance to a given query.
-    Score this snippet on a scale from 1 (completely unrelated) to 10 (perfect match).
+    You are an AI evaluating code snippets. 
+
+    - Your task: Score this snippet's relevance to the query.
+    - **Return ONLY a number between 0-10**.
+    - **DO NOT** explain your reasoning.
+    - **DO NOT** include any text, words, punctuation, or comments.
+    - Example response: `8`
 
     ### Query:
     {user_input}
@@ -27,47 +31,66 @@ def evaluate_snippet(user_input: str, snippet: str):
     ### Code Snippet:
     {snippet}
 
-    ### Scoring Criteria:
-    1. **10**: The snippet **directly implements** the query and is highly efficient (e.g., full-function implementation for downloading videos).
-    2. **8-9**: The snippet is **highly relevant**, but missing small components.
-    3. **5-7**: The snippet is **partially relevant**, but does not fully meet the query.
-    4. **1-4**: The snippet **mentions keywords** but lacks core functionality.
-    5. **0**: The snippet is **completely unrelated**.
-
     ### Response Format:
-    Return only a **single number between 0 and 10**, nothing else.
+    - Output **only** a single integer between `0` and `10`.
+    - No additional text.
+    - If unsure, provide your **best numerical estimate**.
     """
 
-    try:
-        completion = client.chat.completions.create(
-            extra_headers={},
-            model="deepseek/deepseek-r1:free",  # DeepSeek model via OpenRouter
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-        )
+    print("\n--- Sending API Request ---")
+    print(f"Query: {user_input}")
+    print(f"Snippet: {snippet[:200]}...")  # Print first 200 chars of snippet
+    print("--------------------------------------------------")
 
-        # Check if response exists before calling `.strip()`
-        response_text = completion.choices[0].message.content if completion.choices and completion.choices[0].message.content else ""
+    for attempt in range(retries):
+        print(f"\n--- Sending API Request (Attempt {attempt + 1}) ---")
+        print(f"Query: {user_input}")
+        print(f"Snippet: {snippet[:200]}...")
+        print("--------------------------------------------------")
 
-        if not response_text:
-            print("Warning: No response from LLM. Returning score 0.")
-            return 0 # Default score if response is empty
+        try:
+            completion = client.chat.completions.create(
+                extra_headers={},
+                model="deepseek/deepseek-r1:free",  
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+            )
 
-        score = float(response_text.strip())  # Convert response to float
-        return max(0, min(10, score))  # Ensure score is within 0-10
+            # Print full API response
+            print("\n--- API Response ---")
+            print(completion)
 
-    except requests.exceptions.Timeout:
-        print("Timeout Error: Skipping this snippet.")
-        return 0 
-    except (ValueError, IndexError, AttributeError):
-        print("Error: Could not process snippet score. Returning 0.")
-        return 0  # Default score if parsing fails
+            # Extract response text
+            response_text = completion.choices[0].message.content if completion.choices and completion.choices[0].message.content else ""
+
+            if not response_text:
+                print(f"Warning: No response from LLM (Attempt {attempt + 1}). Retrying...")
+                time.sleep(1)  # Small delay before retry to not overwhelm API
+                continue
+
+            # Convert response to float
+            score = float(response_text.strip())
+            print(f"Extracted Score: {score}")
+            return max(0, min(10, score))
+
+        except requests.exceptions.Timeout:
+            print("Timeout Error: Retrying...")
+            time.sleep(1)
+            continue
+        except (ValueError, IndexError, AttributeError) as e:
+            print(f"Error: Could not process snippet score. Retrying... Error: {e}")
+            time.sleep(1)
+            continue
+
+    print("Final Warning: No response from LLM after multiple attempts. Returning score 0.")
+    return 0  # Default score if all attempts fail
 
 def rank_snippets(user_input: str, snippets: list):
     """ Evaluates each snippet separately and returns a list sorted by score. """
-    
+
+    print("\n--- Ranking Snippets ---")
     scored_snippets = [(snippet, evaluate_snippet(user_input, snippet)) for snippet in snippets]
-    
+
     # Sort by score (highest first)
     scored_snippets.sort(key=lambda x: x[1], reverse=True)
 
