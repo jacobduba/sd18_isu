@@ -28,9 +28,11 @@ The implementation leverages UniXcoder for traditional code search capabilities 
    uv pip install -e .
    cd ../
    ```
-3. Install other dependencies
+3. Install other dependencies and set up API key
    ```bash
    uv pip install -r requirements.txt
+   make env
+   source .env
    ```
 
 ### Running
