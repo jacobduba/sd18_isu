@@ -20,27 +20,24 @@ The implementation leverages UniXcoder for traditional code search capabilities 
 1. Create and activate UV environment:
    ```bash
    uv venv
+   # If using bash/zsh
    source .venv/bin/activate
+   # If using fish
+   source .venv/bin/activate.fish
    ```
-2. Install local UniXcoder package:
+2. Install dependencies:
    ```bash
-   cd UniXcoder/
-   uv pip install -e .
-   cd ../
-   ```
-3. Install other dependencies
-   ```bash
-   uv pip install -r requirements.txt
+   make install
    ```
 
 ### Running
 Run the script that creates the data:
 ```bash
-python CodeSearch/create_data.py
+make create
 ```
 Run the code search script:
 ```bash
-python CodeSearch/search.py
+make search
 ```
 
 ## License

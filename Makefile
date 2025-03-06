@@ -1,6 +1,3 @@
-PYTHON = python3
-VENV = venv
-
 help:
 	@echo "Commands:"
 	@echo "  make venv      - Create a virtual environment"
@@ -8,13 +5,17 @@ help:
 	@echo "  make create    - Run the create_data.py script"
 	@echo "  make clean     - Remove temporary files"
 	@echo "  make search    - Remove temporary files"
-venv:
-	$(PYTHON) -m venv $(VENV)
-install: venv
-	$(VENV)/Scripts/pip install -r requirements.txt  	    
-create: install
-	$(VENV)/Scripts/python CodeSearch/create_data.py  	      
+	@echo "  make env       - Set the OpenRouter API key"
+
+install:
+	cd UniXcoder && uv pip install -e .
+	uv pip install -r requirements.txt
+
+create:
+	python3 CodeSearch/create_data.py
+
 clean:
 	rm -rf __pycache__ $(VENV)
-search: install
-	$(VENV)/Scripts/python CodeSearch/search.py
+
+search:
+	OPENROUTER_API_KEY=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 python3 CodeSearch/search.py
