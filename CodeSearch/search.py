@@ -4,6 +4,27 @@ from openai import OpenAI
 import time
 import os
 
+SCORING_PROMPT_TEMPLATE = """ 
+You are an AI evaluating code snippets. 
+
+- Your task: Score this snippet's relevance to the query.
+- **Return ONLY a number between 0-10**.
+- **DO NOT** explain your reasoning.
+- **DO NOT** include any text, words, punctuation, or comments.
+- Example response: `8`
+
+### Query:
+{query}
+
+### Code Snippet:
+{snippet}
+
+### Response Format:
+- Output **only** a single integer between `0` and `10`.
+- No additional text.
+- If unsure, provide your **best numerical estimate**.
+"""
+
 # Set OpenRouter API Key & Base URL
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
@@ -16,26 +37,7 @@ if not client.api_key:
 def evaluate_snippet(user_input: str, snippet: str, retries=3):
     """ Sends one code snippet to DeepSeek via OpenRouter API and retrieves a score (0-10). """
 
-    prompt = f"""
-    You are an AI evaluating code snippets. 
-
-    - Your task: Score this snippet's relevance to the query.
-    - **Return ONLY a number between 0-10**.
-    - **DO NOT** explain your reasoning.
-    - **DO NOT** include any text, words, punctuation, or comments.
-    - Example response: `8`
-
-    ### Query:
-    {user_input}
-
-    ### Code Snippet:
-    {snippet}
-
-    ### Response Format:
-    - Output **only** a single integer between `0` and `10`.
-    - No additional text.
-    - If unsure, provide your **best numerical estimate**.
-    """
+    prompt = SCORING_PROMPT_TEMPLATE.format(query=user_input, snippet=snippet)
 
     print("\n--- Sending API Request ---")
     print(f"Query: {user_input}")
@@ -53,7 +55,7 @@ def evaluate_snippet(user_input: str, snippet: str, retries=3):
                 extra_headers={},
                 model="deepseek/deepseek-r1:free",  
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
+                temperature=0.2,
             )
 
             # Print full API response
