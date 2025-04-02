@@ -1,7 +1,9 @@
 datasets
+tqdm
 torch
 numpy
 dataset
 typing
 pydantic
 openai
+sqlite3
