@@ -120,7 +120,7 @@ def search(query_embedding: np.ndarray, top_k: int = 10):
     return [(ids[i], scores[i]) for i in top_indices]
 
 
-def create_code_search_net_dataset(slice_size: int = 2000) -> List[DataPoint]:
+def create_code_search_net_dataset(slice_size: int = 20000) -> List[DataPoint]:
     """Loads a subset of the CodeSearchNet dataset and returns it as DataPoint objects."""
     dataset: Any = load_dataset(
         "code_search_net", "python", split="test", trust_remote_code=True
