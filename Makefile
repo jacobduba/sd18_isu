@@ -18,4 +18,7 @@ clean:
 	rm -rf __pycache__ $(VENV)
 
 search:
-	OPENROUTER_API_KEY=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 python3 CodeSearch/search.py
+	OPENROUTER_API_KEY=$(OPENROUTER_API_KEY) python3 CodeSearch/search.py
+
+env:
+	@echo 'export OPENROUTER_API_KEY=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'

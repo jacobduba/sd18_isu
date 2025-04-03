@@ -29,6 +29,10 @@ The implementation leverages UniXcoder for traditional code search capabilities 
    ```bash
    make install
    ```
+3. Export your API key:
+   ```bash
+   eval $(make env)
+   ```
 
 ### Running
 Run the script that creates the data:
