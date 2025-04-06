@@ -2,7 +2,7 @@ import sqlite3
 from datasets import load_dataset
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, List
+from typing import Any, List, Optional
 
 from models.code_search_net import DataPoint
 import torch
@@ -120,12 +120,14 @@ def search(query_embedding: np.ndarray, top_k: int = 10):
     return [(ids[i], scores[i]) for i in top_indices]
 
 
-def create_code_search_net_dataset(slice_size: int = 20000) -> List[DataPoint]:
+def create_code_search_net_dataset(slice_size: Optional[int] = None) -> List[DataPoint]:
     """Loads a subset of the CodeSearchNet dataset and returns it as DataPoint objects."""
     dataset: Any = load_dataset(
-        "code_search_net", "python", split="test", trust_remote_code=True
+        "code_search_net", "python", split="train+test+validation", trust_remote_code=True
     )
-    dataset = dataset.select(range(slice_size))
+    if slice_size:
+        dataset = dataset.select(range(slice_size))
+
 
     data_points: List[DataPoint] = []
     for idx, item in tqdm(
