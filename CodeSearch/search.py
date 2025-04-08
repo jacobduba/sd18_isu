@@ -1,9 +1,15 @@
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template, request
 from search_processing import get_processed_data, process_user_code_segment, get_top_ten
 from openai import OpenAI
 import requests
 import time
 import os
+
+app = Flask(
+    __name__,
+    template_folder="../templates",     # relative path to templates
+    static_folder="../static"           # relative path to static
+)
 
 # Set up the OpenRouter client
 client = OpenAI(
@@ -64,39 +70,6 @@ def rank_snippets(user_input: str, snippets: list):
     scored_snippets.sort(key=lambda x: x[1], reverse=True)
     return scored_snippets
 
-# Flask App
-app = Flask(__name__)
-
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Code Search</title>
-    <style>
-        body { font-family: Arial; margin: 40px; }
-        textarea { width: 100%; height: 80px; }
-        .snippet { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
-    </style>
-</head>
-<body>
-    <h2>Domain-Specific Code Search</h2>
-    <form method="POST">
-        <textarea name="code_description" placeholder="Describe your code..."></textarea><br><br>
-        <input type="submit" value="Search">
-    </form>
-
-    {% if results %}
-        <h3>Top Snippets</h3>
-        {% for snippet, score in results %}
-            <div class="snippet">
-                <strong>Score: {{ score }}</strong>
-                <pre>{{ snippet }}</pre>
-            </div>
-        {% endfor %}
-    {% endif %}
-</body>
-</html>
-"""
 
 @app.route("/", methods=["GET", "POST"])
 def search_page():
@@ -110,7 +83,7 @@ def search_page():
         ranked_snippets = rank_snippets(user_input, top_ten_snippets)
         results = ranked_snippets
 
-    return render_template_string(HTML_TEMPLATE, results=results)
+    return render_template("index.html", results=results)
 
 if __name__ == "__main__":
     app.run(debug=True)

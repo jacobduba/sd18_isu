@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Code Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class = "inside-container">
+        <div class="page-header">
+            <div class="site-title">CodeSearch AI</div>
+            <nav>
+              <a href="/" class="nav-link">Home</a>
+            </nav>
+        </div>                
+        <form method="POST">
+            <div class="input-container">
+                <textarea class="input" name="code_description" placeholder="Describe your code..."></textarea>
+            </div>
+            <button type="submit"><span>Search</span></button>
+        </form>
+
+        {% if results %}
+            <h3>Top Snippets</h3>
+            {% for snippet, score in results %}
+                <div class="snippet">
+                    <strong>Score: {{ score }}</strong>
+                    <pre>{{ snippet }}</pre>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</body>
+</html>
