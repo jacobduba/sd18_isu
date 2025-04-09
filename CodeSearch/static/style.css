@@ -77,15 +77,23 @@ body {
     border-radius: 8px;
   }
   
-  .input:focus {
-    outline: none;
-    border: 0.5px solid black;
-    box-shadow: -5px -5px 0px black;
+  .input {
+    font-family: Arial;
+    width: 100%;
+    height: 100px;
+    padding: 10px;
+    border: 2px solid #ccc; /* light gray */
+    font-size: 14px;
+    border-radius: 8px;
+    resize: vertical;
   }
   
-  .input-container:hover > .icon {
-    animation: anim 1s linear infinite;
+  .input:focus,
+  .input:hover {
+    border-color: #076fe5; /* bright blue on hover/focus */
+    outline: none;
   }
+  
   
   @keyframes anim {
     0%, 100% {

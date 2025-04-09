@@ -7,9 +7,10 @@ import os
 
 app = Flask(
     __name__,
-    template_folder="../templates",     # relative path to templates
-    static_folder="../static"           # relative path to static
+    template_folder="templates",  
+    static_folder="static"     
 )
+
 
 # Set up the OpenRouter client
 client = OpenAI(
@@ -54,16 +55,33 @@ def evaluate_snippet(user_input: str, snippet: str, retries=3):
                 temperature=0.2,
             )
 
+            # Safely check if an error object is present
+            error = getattr(completion, "error", None)
+            if error:
+                print(f"API Error (attempt {attempt + 1}): {error.get('message', 'Unknown error')}")
+                continue  # skip this attempt
+
+            # Check if choices exist
+            if not completion.choices or not completion.choices[0].message:
+                print(f"Missing choices or message on attempt {attempt + 1}")
+                continue
+
             response_text = completion.choices[0].message.content
+
             if not response_text:
-                raise ValueError("Empty response from LLM.")
+                print(f"Attempt {attempt + 1}: LLM returned empty response.")
+                continue  # try next attempt
+
             score = float(response_text.strip())
             return max(0, min(10, score))
+
         except Exception as e:
-            print(f"Error on attempt {attempt + 1}: {e}")
+            print(f"Exception on attempt {attempt + 1}: {e}")
             time.sleep(1)
 
-    return 0  # Fallback score
+    print("All attempts failed. Returning score 0.")
+    return 0
+
 
 def rank_snippets(user_input: str, snippets: list):
     scored_snippets = [(snippet, evaluate_snippet(user_input, snippet)) for snippet in snippets]

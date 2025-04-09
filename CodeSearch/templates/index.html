@@ -12,7 +12,6 @@
         <div class="page-header">
             <div class="site-title">CodeSearch AI</div>
             <nav>
-              <a href="/" class="nav-link">Home</a>
             </nav>
         </div>                
         <form method="POST">
@@ -60,7 +59,7 @@
           // Clear previous results if they exist
           const results = document.getElementById("results-section");
           if (results) {
-            results.innerHTML = "";
+            results.remove(); // Removes the entire element from the DOM
           }
         });
         function copyToClipboard(button) {
