@@ -7,8 +7,8 @@ import os
 
 app = Flask(
     __name__,
-    template_folder="templates",  
-    static_folder="static"     
+    template_folder="templates",
+    static_folder="static"
 )
 
 
@@ -22,8 +22,8 @@ if not client.api_key:
     raise ValueError("OpenRouter API key is missing. Set it in your environment variables.")
 
 # Scoring prompt for LLM
-SCORING_PROMPT_TEMPLATE = """ 
-You are an AI evaluating code snippets. 
+SCORING_PROMPT_TEMPLATE = """
+You are an AI evaluating code snippets.
 
 - Your task: Score this snippet's relevance to the query.
 - **Return ONLY a number between 0-10**.
@@ -46,11 +46,16 @@ You are an AI evaluating code snippets.
 def evaluate_snippet(user_input: str, snippet: str, retries=3):
     prompt = SCORING_PROMPT_TEMPLATE.format(query=user_input, snippet=snippet)
 
+    print("\n--- Sending API Request ---")
+    print(f"Query: {user_input}")
+    print(f"Snippet: {snippet[:200]}...")  # Print first 200 chars of snippet
+    print("--------------------------------------------------")
+
     for attempt in range(retries):
         try:
             completion = client.chat.completions.create(
                 extra_headers={},
-                model="deepseek/deepseek-r1:free",
+                model="deepseek/deepseek-r1",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2,
             )
@@ -71,6 +76,10 @@ def evaluate_snippet(user_input: str, snippet: str, retries=3):
             if not response_text:
                 print(f"Attempt {attempt + 1}: LLM returned empty response.")
                 continue  # try next attempt
+
+            # Print full API response
+            print("\n--- API Response ---")
+            print(completion)
 
             score = float(response_text.strip())
             return max(0, min(10, score))
