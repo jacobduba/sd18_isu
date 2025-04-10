@@ -29,6 +29,17 @@ The implementation leverages UniXcoder for traditional code search capabilities 
    ```bash
    make install
    ```
+3. Export your API key:
+   ```bash
+   make env
+   ```
+   Then copy and paste the printed line into your terminal.
+
+   - For **Bash/Zsh**, just paste the `export` command.
+   - For **Fish shell**, run:
+     ```fish
+     set -x OPENROUTER_API_KEY your-key-here
+     ```
 
 ### Running
 Run the script that creates the data:
