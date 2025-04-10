@@ -55,7 +55,7 @@ def evaluate_snippet(user_input: str, snippet: str, retries=3):
         try:
             completion = client.chat.completions.create(
                 extra_headers={},
-                model="deepseek/deepseek-r1",
+                model="deepseek/deepseek-r1:free",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2,
             )
