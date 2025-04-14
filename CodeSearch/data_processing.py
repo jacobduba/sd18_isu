@@ -14,10 +14,19 @@ from unixcoder import UniXcoder
 
 # SQLite database file
 DB_FILE = "embeddings.db"
+HAS_GPU = False
 
-# Initialize UniXcoder
-device = DeviceModel("cuda" if cuda.is_available() else "cpu")
+if torch.backends.mps.is_available():
+    device = DeviceModel("mps")
+    HAS_GPU = True
+elif cuda.is_available():
+    device = DeviceModel("cuda")
+    HAS_GPU = True
+else:
+    device = DeviceModel("cpu")
+
 model = UniXcoder("microsoft/unixcoder-base")
+model.to(device)
 
 
 def create_table():
@@ -53,6 +62,26 @@ def store_embedding(index: int, code_string: str, embedding: np.ndarray):
         conn.commit()
 
 
+def generate_embeddings_ACCELERATED(data_points: List[DataPoint]):
+    for dp in data_points:
+        if embedding_exists(dp.id):
+            return
+    tokens_ids = model.tokenize(
+        [dp.func_documentation_string for dp in data_points],
+        max_length=512,
+        mode="<encoder-only>",
+        padding=True,
+    )
+    source_ids = tensor(tokens_ids).to(device)
+    with torch.no_grad():
+        _, nl_embedding = model(source_ids)
+
+    embedding = torch.nn.functional.normalize(nl_embedding, p=2, dim=1)
+    for i, dp in enumerate(data_points):
+        emb = torch.flatten(embedding[i]).detach().cpu().numpy()
+        store_embedding(dp.id, dp.whole_func_string, emb)
+
+
 def generate_embedding(snippet_for_model: str, code_string: str, index: int):
     """Generates and stores an embedding if it doesn't already exist."""
     if embedding_exists(index):
@@ -77,19 +106,30 @@ def generate_embedding(snippet_for_model: str, code_string: str, index: int):
 
 def process_data(data_points: List[DataPoint]) -> None:
     """Processes data points in parallel and stores embeddings in SQLite."""
-    with ThreadPoolExecutor() as executor:
-        list(
-            tqdm(
-                executor.map(
-                    lambda dp: generate_embedding(
-                        dp.func_documentation_string, dp.whole_func_string, dp.id
+    if HAS_GPU:
+        print("HAS GPU")
+        batch_size = 64
+        with tqdm(
+            total=len(data_points), desc="Generating & Storing embeddings (GPU)"
+        ) as pbar:
+            for i in range(0, len(data_points), batch_size):
+                batch = data_points[i : i + batch_size]
+                generate_embeddings_ACCELERATED(batch)
+                pbar.update(len(batch))
+    else:
+        with ThreadPoolExecutor() as executor:
+            list(
+                tqdm(
+                    executor.map(
+                        lambda dp: generate_embedding(
+                            dp.func_documentation_string, dp.whole_func_string, dp.id
+                        ),
+                        data_points,
                     ),
-                    data_points,
-                ),
-                total=len(data_points),
-                desc="Generating & Storing embeddings",
+                    total=len(data_points),
+                    desc="Generating & Storing embeddings (CPU)",
+                )
             )
-        )
 
 
 def load_embeddings():
@@ -123,11 +163,13 @@ def search(query_embedding: np.ndarray, top_k: int = 10):
 def create_code_search_net_dataset(slice_size: Optional[int] = None) -> List[DataPoint]:
     """Loads a subset of the CodeSearchNet dataset and returns it as DataPoint objects."""
     dataset: Any = load_dataset(
-        "code_search_net", "python", split="train+test+validation", trust_remote_code=True
+        "code_search_net",
+        "python",
+        split="train+test+validation",
+        trust_remote_code=True,
     )
     if slice_size:
         dataset = dataset.select(range(slice_size))
-
 
     data_points: List[DataPoint] = []
     for idx, item in tqdm(

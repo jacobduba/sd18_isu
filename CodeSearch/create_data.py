@@ -2,6 +2,6 @@ from data_processing import create_table, process_data, create_code_search_net_d
 
 if __name__ == "__main__":
     create_table()
-    data_points = create_code_search_net_dataset()
+    data_points = create_code_search_net_dataset(slice_size=10000)
     if data_points:
         process_data(data_points)
