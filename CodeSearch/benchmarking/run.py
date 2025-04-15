@@ -264,23 +264,28 @@ def evaluate(args, model, tokenizer, file_name, eval_when_training=False):
     nl_urls = []
     nl_strings = []
     code_urls = []
+    code_strings = []
     for example in query_dataset.examples:
         nl_urls.append(example.url)
         nl_strings.append(example.docstring_summary)
 
     for example in code_dataset.examples:
         code_urls.append(example.url)
+        code_strings.append(example.docstring_summary)
 
     ranked_snippets = []
     for nl_string, sort_id in zip(nl_strings, sort_ids):
-        ranked_snippets.append(rank_snippets(nl_string, sort_id[:10]))
+        code_strings_for_llm = []
+        for idx in sort_id[:10]:
+            code_strings_for_llm.append(code_strings[idx])
+        ranked_snippets.append(rank_snippets(nl_string, code_strings_for_llm))
     ranked_snippets = np.concatenate(ranked_snippets, 0)
 
     ranks = []
-    for url, sort_id in zip(nl_urls, ranked_snippets):
+    for url, top_10 in zip(nl_urls, ranked_snippets):
         rank = 0
         find = False
-        for idx in sort_id[:10]:
+        for idx in top_10[:10]:
             if find is False:
                 rank += 1
             if code_urls[idx] == url:
