@@ -5,3 +5,4 @@ dataset
 typing
 pydantic
 openai
+transformers
