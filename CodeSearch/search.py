@@ -11,16 +11,6 @@ app = Flask(
     static_folder="static"
 )
 
-
-# Set up the OpenRouter client
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-)
-
-if not client.api_key:
-    raise ValueError("OpenRouter API key is missing. Set it in your environment variables.")
-
 # Scoring prompt for LLM
 SCORING_PROMPT_TEMPLATE = """
 You are an AI evaluating code snippets.
@@ -45,7 +35,8 @@ You are an AI evaluating code snippets.
 
 def evaluate_snippet(user_input: str, snippet: str, retries=3):
     prompt = SCORING_PROMPT_TEMPLATE.format(query=user_input, snippet=snippet)
-
+    #ollama api is hosted locally on port 11434
+    url = "http://localhost:11434/api/generate"
     print("\n--- Sending API Request ---")
     print(f"Query: {user_input}")
     print(f"Snippet: {snippet[:200]}...")  # Print first 200 chars of snippet
@@ -53,29 +44,27 @@ def evaluate_snippet(user_input: str, snippet: str, retries=3):
 
     for attempt in range(retries):
         try:
-            completion = client.chat.completions.create(
-                extra_headers={},
-                model="deepseek/deepseek-r1:free",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
-            )
+            completion = requests.post(url, json={
+                "model":"llama2",
+                "prompt":prompt,
+                "stream":False,
+                "temperature":0.2,
+            })
 
             # Safely check if an error object is present
-            error = getattr(completion, "error", None)
-            if error:
-                print(f"API Error (attempt {attempt + 1}): {error.get('message', 'Unknown error')}")
+
+            if completion.status_code != 200:
+                print(f"API Error (attempt {attempt + 1}): {completion.text}")
                 continue  # skip this attempt
+            
+            data = completion.json()
+            response_text = data.get("response","")
 
             # Check if choices exist
-            if not completion.choices or not completion.choices[0].message:
+            if not response_text:
                 print(f"Missing choices or message on attempt {attempt + 1}")
                 continue
 
-            response_text = completion.choices[0].message.content
-
-            if not response_text:
-                print(f"Attempt {attempt + 1}: LLM returned empty response.")
-                continue  # try next attempt
 
             # Print full API response
             print("\n--- API Response ---")
