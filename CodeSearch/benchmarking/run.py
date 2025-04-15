@@ -27,10 +27,12 @@ import random
 import torch
 import json
 import numpy as np
+from search import rank_snippets
 from model import Model
 from torch.nn import CrossEntropyLoss, MSELoss
+from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler, TensorDataset
-from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
+from transformers import (WEIGHTS_NAME, get_linear_schedule_with_warmup,
                           RobertaConfig, RobertaModel, RobertaTokenizer)
 
 logger = logging.getLogger(__name__)
@@ -260,18 +262,25 @@ def evaluate(args, model, tokenizer, file_name, eval_when_training=False):
         scores, axis=-1, kind='quicksort', order=None)[:, ::-1]
 
     nl_urls = []
+    nl_strings = []
     code_urls = []
     for example in query_dataset.examples:
         nl_urls.append(example.url)
+        nl_strings.append(example.docstring_summary)
 
     for example in code_dataset.examples:
         code_urls.append(example.url)
 
+    ranked_snippets = []
+    for nl_string, sort_id in zip(nl_strings, sort_ids):
+        ranked_snippets.append(rank_snippets(nl_string, sort_id[:10]))
+    ranked_snippets = np.concatenate(ranked_snippets, 0)
+
     ranks = []
-    for url, sort_id in zip(nl_urls, sort_ids):
+    for url, sort_id in zip(nl_urls, ranked_snippets):
         rank = 0
         find = False
-        for idx in sort_id[:1000]:
+        for idx in sort_id[:10]:
             if find is False:
                 rank += 1
             if code_urls[idx] == url:
