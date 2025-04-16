@@ -1,9 +1,15 @@
-from flask import Flask, render_template, request
-from search_processing import get_processed_data, process_user_code_segment, get_top_ten
-from openai import OpenAI
-import requests
-import time
 import os
+import sqlite3
+import time
+
+from datasets.arrow_dataset import re
+from flask import Flask, render_template, request
+from openai import OpenAI
+
+from transformers import pipeline
+
+from data_processing import DB_FILE
+from search_processing import get_processed_data, get_top_ten, process_user_code_segment
 
 app = Flask(
     __name__,
@@ -43,53 +49,41 @@ You are an AI evaluating code snippets.
 - If unsure, provide your **best numerical estimate**.
 """
 
+generator = pipeline("text-generation", model="gpt2")
+
 def evaluate_snippet(user_input: str, snippet: str, retries=3):
+    """Evaluates a snippet locally using a text generation model to score its relevance."""
     prompt = SCORING_PROMPT_TEMPLATE.format(query=user_input, snippet=snippet)
-
-    print("\n--- Sending API Request ---")
-    print(f"Query: {user_input}")
-    print(f"Snippet: {snippet[:200]}...")  # Print first 200 chars of snippet
-    print("--------------------------------------------------")
-
+    
     for attempt in range(retries):
+        print(f"\n--- Local Model Inference (Attempt {attempt + 1}) ---")
+        print(f"Prompt (truncated): {prompt[:200]}...")
+        
         try:
-            completion = client.chat.completions.create(
-                extra_headers={},
-                model="deepseek/deepseek-r1:free",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
-            )
-
-            # Safely check if an error object is present
-            error = getattr(completion, "error", None)
-            if error:
-                print(f"API Error (attempt {attempt + 1}): {error.get('message', 'Unknown error')}")
-                continue  # skip this attempt
-
-            # Check if choices exist
-            if not completion.choices or not completion.choices[0].message:
-                print(f"Missing choices or message on attempt {attempt + 1}")
+            # The max_length should be set to limit the output to a few tokens.
+            result = generator(prompt, max_new_tokens=10, temperature=0.2)
+            generated_text = result[0]['generated_text']
+            print("\n--- Model Output ---")
+            print(generated_text)
+            
+            # We expect only a number: try extracting the first integer between 0 and 10.
+            match = re.search(r'\b([0-9]|10)\b', generated_text)
+            if match:
+                score = float(match.group(1))
+                print(f"Extracted Score: {score}")
+                return max(0, min(10, score))
+            else:
+                print(f"Warning: Unable to find score in output (Attempt {attempt + 1}). Retrying...")
+                time.sleep(1)
                 continue
-
-            response_text = completion.choices[0].message.content
-
-            if not response_text:
-                print(f"Attempt {attempt + 1}: LLM returned empty response.")
-                continue  # try next attempt
-
-            # Print full API response
-            print("\n--- API Response ---")
-            print(completion)
-
-            score = float(response_text.strip())
-            return max(0, min(10, score))
-
+        
         except Exception as e:
-            print(f"Exception on attempt {attempt + 1}: {e}")
+            print(f"Error during local inference (Attempt {attempt + 1}): {e}")
             time.sleep(1)
+            continue
 
-    print("All attempts failed. Returning score 0.")
-    return 0
+    print("Final Warning: No valid score after multiple attempts. Returning score 0.")
+    return 0  # Default fallback score
 
 
 def rank_snippets(user_input: str, snippets: list):
@@ -103,14 +97,16 @@ def search_page():
     initial_results = None
     llm_results = None
     if request.method == "POST":
-        user_input = request.form["code_description"]
-        processed_data = get_processed_data()
-        processed_user_code = process_user_code_segment(user_input)
-        top_ten_indices = get_top_ten(processed_user_code, processed_data)
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            user_input = request.form["code_description"]
+            processed_data = get_processed_data(cursor)
+            processed_user_code = process_user_code_segment(user_input)
+            top_ten_indices = get_top_ten(processed_user_code, processed_data)
 
-        initial_results = [(processed_data[index].code_string, score) for index, score in top_ten_indices]
-        top_ten_snippets = [snippet for snippet, _ in initial_results]
-        llm_results = rank_snippets(user_input, top_ten_snippets)
+            initial_results = [(processed_data[index][0], score) for index, score in top_ten_indices]
+            top_ten_snippets = [snippet for snippet, _ in initial_results]
+            llm_results = rank_snippets(user_input, top_ten_snippets)
 
     return render_template("index.html", initial_results=initial_results, llm_results=llm_results)
 

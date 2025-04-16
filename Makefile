@@ -16,6 +16,7 @@ create:
 
 clean:
 	rm -rf __pycache__ $(VENV)
+	rm -rf embeddings*
 
 search:
 	python3 CodeSearch/search.py

@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.db
 
 # C extensions
 *.so
@@ -175,4 +176,4 @@ cython_debug/
 
 # Ignore the generated data file
 data.json
-
+embeddings.db
