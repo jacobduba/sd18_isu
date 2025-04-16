@@ -14,19 +14,26 @@ from models.code_search_net import DataPoint
 
 # SQLite database file
 DB_FILE = "embeddings.db"
-HAS_GPU = False
 
-if torch.backends.mps.is_available():
-    device = DeviceModel("mps")
-    HAS_GPU = True
-elif cuda.is_available():
-    device = DeviceModel("cuda")
-    HAS_GPU = True
-else:
-    device = DeviceModel("cpu")
 
-model = UniXcoder("microsoft/unixcoder-base")
-model.to(device)
+def init_model() -> Tuple[UniXcoder, DeviceModel, bool]:
+    has_gpu = False
+    if torch.backends.mps.is_available():
+        device = DeviceModel("mps")
+        has_gpu = True
+    elif cuda.is_available():
+        device = DeviceModel("cuda")
+        has_gpu = True
+    else:
+        device = DeviceModel("cpu")
+
+    model = UniXcoder("microsoft/unixcoder-base")
+    model.to(device)
+
+    return model, device, has_gpu
+
+
+model, device, HAS_GPU = init_model()
 
 
 def create_table(cursor: sqlite3.Cursor):
@@ -46,7 +53,9 @@ def embedding_exists(cursor: sqlite3.Cursor, index: int) -> bool:
     return cursor.fetchone() is not None
 
 
-def store_embedding_bulk(entries: List[Tuple[int, str, np.ndarray]], cursor: sqlite3.Cursor):
+def store_embedding_bulk(
+    entries: List[Tuple[int, str, np.ndarray]], cursor: sqlite3.Cursor
+):
     cursor.executemany(
         "INSERT INTO embeddings (id, code_string, embedding) VALUES (?, ?, ?)",
         [(i, code, emb.tobytes()) for i, code, emb in entries],
@@ -65,8 +74,10 @@ def store_embedding(
 
 def generate_embeddings_ACCELERATED(
     data_points: List[DataPoint], cursor: sqlite3.Cursor
-) -> List[Tuple[int, str, np.ndarray]] | None:
-    filtered_data_points = filter(lambda dp: not embedding_exists(cursor, dp.id), data_points)
+) -> List[Tuple[int, str, np.ndarray]]:
+    filtered_data_points = list(
+        filter(lambda dp: not embedding_exists(cursor, dp.id), data_points)
+    )
     tokens_ids = model.tokenize(
         [dp.func_documentation_string for dp in filtered_data_points],
         max_length=512,
@@ -81,7 +92,7 @@ def generate_embeddings_ACCELERATED(
     entries = []
     for i, dp in enumerate(filtered_data_points):
         emb = torch.flatten(embedding[i]).detach().cpu().numpy()
-        entries.extend([dp.id, dp.whole_func_string, emb])
+        entries.append((dp.id, dp.whole_func_string, emb))
     return entries
 
 
@@ -119,7 +130,7 @@ def process_data(data_points: List[DataPoint], cursor: sqlite3.Cursor) -> None:
             entries: List[Tuple[int, str, np.ndarray]] = []
             for i in range(0, len(data_points), batch_size):
                 batch = data_points[i : i + batch_size]
-                entries.extend(generate_embeddings_ACCELERATED(batch, cursor) or [])
+                entries.extend(generate_embeddings_ACCELERATED(batch, cursor))
                 pbar.update(len(batch))
             store_embedding_bulk(entries, cursor)
     else:
@@ -128,7 +139,10 @@ def process_data(data_points: List[DataPoint], cursor: sqlite3.Cursor) -> None:
                 tqdm(
                     executor.map(
                         lambda dp: generate_embedding(
-                            dp.func_documentation_string, dp.whole_func_string, dp.id
+                            dp.func_documentation_string,
+                            dp.whole_func_string,
+                            dp.id,
+                            cursor,
                         ),
                         data_points,
                     ),

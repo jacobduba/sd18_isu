@@ -5,31 +5,23 @@ from typing import List, Tuple
 
 import numpy as np
 import torch
-from unixcoder import UniXcoder
 
-from data_processing import DB_FILE
+from data_processing import  init_model
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = UniXcoder("microsoft/unixcoder-base")
+model, device, HAS_GPU = init_model()
 
 
-def get_processed_data() -> List[Tuple[str, np.ndarray]]:
+def get_processed_data(cursor: sqlite3.Cursor) -> List[Tuple[str, np.ndarray]]:
     """Loads code snippets and their embeddings from SQLite into memory."""
     try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-
-            # Fetch all embeddings and corresponding code strings
-            cursor.execute("SELECT code_string, embedding FROM embeddings")
-            data = cursor.fetchall()
-
-        # Convert BLOB (bytes) to NumPy arrays
-        processed_data = [
-            (row[0], np.frombuffer(row[1], dtype=np.float32)) for row in data
-        ]
-
-        return processed_data  # List of (code_string, embedding)
-
+        cursor.execute("SELECT code_string, embedding FROM embeddings")
+        processed_data = []
+        for code_string, blob in cursor:
+            if blob is None:
+                continue
+            embedding = np.frombuffer(blob, dtype=np.float32)
+            processed_data.append((code_string, embedding))
+        return processed_data
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
         return []

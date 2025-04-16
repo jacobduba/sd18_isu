@@ -1,8 +1,12 @@
-from search_processing import get_processed_data, process_user_code_segment, get_top_ten
+import os
+import sqlite3
+import time
+
 import requests
 from openai import OpenAI
-import time
-import os
+
+from data_processing import DB_FILE
+from search_processing import get_processed_data, get_top_ten, process_user_code_segment
 
 SCORING_PROMPT_TEMPLATE = """ 
 You are an AI evaluating code snippets. 
@@ -117,8 +121,9 @@ if __name__ == "__main__":
     user_input = input("Enter your code description: ")
 
     # Get processed data (code snippets & embeddings)
-
-    processed_data = get_processed_data()
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        processed_data = get_processed_data(cursor)
     print(f"Loaded {len(processed_data)} embeddings.")
 
     processed_user_code = process_user_code_segment(user_input)
@@ -127,9 +132,7 @@ if __name__ == "__main__":
     top_ten_indices = get_top_ten(processed_user_code, processed_data)
 
     # Extract the actual snippets from the indices
-    top_ten_snippets = [
-        processed_data[index][0] for index, _ in top_ten_indices
-    ]
+    top_ten_snippets = [processed_data[index][0] for index, _ in top_ten_indices]
 
     # Rank the top 10 snippets using the LLM API
     ranked_snippets = rank_snippets(user_input, top_ten_snippets)
