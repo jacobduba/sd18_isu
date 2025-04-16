@@ -7,7 +7,7 @@ from data_processing import (
     process_data,
 )
 
-slice_size = 9
+slice_size = 10000
 if __name__ == "__main__":
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
@@ -16,5 +16,4 @@ if __name__ == "__main__":
         if data_points:
             process_data(data_points, cursor)
         cursor.execute("SELECT COUNT(*) FROM embeddings")
-        print("Rows in DB:", cursor.fetchone()[0])
         conn.commit()

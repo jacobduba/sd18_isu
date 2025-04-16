@@ -7,3 +7,4 @@ typing
 pydantic
 openai
 flask
+transformers

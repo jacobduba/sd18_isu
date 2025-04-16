@@ -176,4 +176,4 @@ cython_debug/
 
 # Ignore the generated data file
 data.json
-
+embeddings.db
