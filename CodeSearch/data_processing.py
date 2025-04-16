@@ -1,16 +1,16 @@
 import sqlite3
-from datasets import load_dataset
-import numpy as np
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
-from models.code_search_net import DataPoint
+import numpy as np
 import torch
+from datasets import load_dataset
 from torch import cuda, tensor
 from torch import device as DeviceModel
 from tqdm import tqdm
-
 from unixcoder import UniXcoder
+
+from models.code_search_net import DataPoint
 
 # SQLite database file
 DB_FILE = "embeddings.db"
@@ -29,45 +29,46 @@ model = UniXcoder("microsoft/unixcoder-base")
 model.to(device)
 
 
-def create_table():
+def create_table(cursor: sqlite3.Cursor):
     """Creates the embeddings table if it doesn't exist."""
-    with sqlite3.connect(DB_FILE) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """CREATE TABLE IF NOT EXISTS embeddings (
-                id INTEGER PRIMARY KEY,
-                code_string TEXT,
-                embedding BLOB
-            )"""
-        )
-        conn.commit()
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS embeddings (
+            id INTEGER PRIMARY KEY,
+            code_string TEXT,
+            embedding BLOB
+        )"""
+    )
 
 
-def embedding_exists(index: int) -> bool:
+def embedding_exists(cursor: sqlite3.Cursor, index: int) -> bool:
     """Checks if an embedding already exists in the database."""
-    with sqlite3.connect(DB_FILE) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1 FROM embeddings WHERE id = ?", (index,))
-        return cursor.fetchone() is not None
+    cursor.execute("SELECT 1 FROM embeddings WHERE id = ?", (index,))
+    return cursor.fetchone() is not None
 
 
-def store_embedding(index: int, code_string: str, embedding: np.ndarray):
+def store_embedding_bulk(entries: List[Tuple[int, str, np.ndarray]], cursor: sqlite3.Cursor):
+    cursor.executemany(
+        "INSERT INTO embeddings (id, code_string, embedding) VALUES (?, ?, ?)",
+        [(i, code, emb.tobytes()) for i, code, emb in entries],
+    )
+
+
+def store_embedding(
+    index: int, code_string: str, embedding: np.ndarray, cursor: sqlite3.Cursor
+):
     """Stores an embedding in the SQLite database."""
-    with sqlite3.connect(DB_FILE) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO embeddings (id, code_string, embedding) VALUES (?, ?, ?)",
-            (index, code_string, embedding.tobytes()),
-        )
-        conn.commit()
+    cursor.execute(
+        "INSERT INTO embeddings (id, code_string, embedding) VALUES (?, ?, ?)",
+        (index, code_string, embedding.tobytes()),
+    )
 
 
-def generate_embeddings_ACCELERATED(data_points: List[DataPoint]):
-    for dp in data_points:
-        if embedding_exists(dp.id):
-            return
+def generate_embeddings_ACCELERATED(
+    data_points: List[DataPoint], cursor: sqlite3.Cursor
+) -> List[Tuple[int, str, np.ndarray]] | None:
+    filtered_data_points = filter(lambda dp: not embedding_exists(cursor, dp.id), data_points)
     tokens_ids = model.tokenize(
-        [dp.func_documentation_string for dp in data_points],
+        [dp.func_documentation_string for dp in filtered_data_points],
         max_length=512,
         mode="<encoder-only>",
         padding=True,
@@ -77,14 +78,18 @@ def generate_embeddings_ACCELERATED(data_points: List[DataPoint]):
         _, nl_embedding = model(source_ids)
 
     embedding = torch.nn.functional.normalize(nl_embedding, p=2, dim=1)
-    for i, dp in enumerate(data_points):
+    entries = []
+    for i, dp in enumerate(filtered_data_points):
         emb = torch.flatten(embedding[i]).detach().cpu().numpy()
-        store_embedding(dp.id, dp.whole_func_string, emb)
+        entries.extend([dp.id, dp.whole_func_string, emb])
+    return entries
 
 
-def generate_embedding(snippet_for_model: str, code_string: str, index: int):
+def generate_embedding(
+    snippet_for_model: str, code_string: str, index: int, cursor: sqlite3.Cursor
+):
     """Generates and stores an embedding if it doesn't already exist."""
-    if embedding_exists(index):
+    if embedding_exists(cursor, index):
         return  # Skip processing if already exists
 
     tokens_ids = model.tokenize(
@@ -101,21 +106,22 @@ def generate_embedding(snippet_for_model: str, code_string: str, index: int):
         .numpy()
     )
 
-    store_embedding(index, code_string, embedding)
+    store_embedding(index, code_string, embedding, cursor)
 
 
-def process_data(data_points: List[DataPoint]) -> None:
+def process_data(data_points: List[DataPoint], cursor: sqlite3.Cursor) -> None:
     """Processes data points in parallel and stores embeddings in SQLite."""
     if HAS_GPU:
-        print("HAS GPU")
-        batch_size = 64
+        batch_size = 16
         with tqdm(
             total=len(data_points), desc="Generating & Storing embeddings (GPU)"
         ) as pbar:
+            entries: List[Tuple[int, str, np.ndarray]] = []
             for i in range(0, len(data_points), batch_size):
                 batch = data_points[i : i + batch_size]
-                generate_embeddings_ACCELERATED(batch)
+                entries.extend(generate_embeddings_ACCELERATED(batch, cursor) or [])
                 pbar.update(len(batch))
+            store_embedding_bulk(entries, cursor)
     else:
         with ThreadPoolExecutor() as executor:
             list(
