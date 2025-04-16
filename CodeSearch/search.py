@@ -100,17 +100,19 @@ def rank_snippets(user_input: str, snippets: list):
 
 @app.route("/", methods=["GET", "POST"])
 def search_page():
-    results = None
+    initial_results = None
+    llm_results = None
     if request.method == "POST":
         user_input = request.form["code_description"]
         processed_data = get_processed_data()
         processed_user_code = process_user_code_segment(user_input)
         top_ten_indices = get_top_ten(processed_user_code, processed_data)
-        top_ten_snippets = [processed_data[index].code_string for index, _ in top_ten_indices]
-        ranked_snippets = rank_snippets(user_input, top_ten_snippets)
-        results = ranked_snippets
 
-    return render_template("index.html", results=results)
+        initial_results = [(processed_data[index].code_string, score) for index, score in top_ten_indices]
+        top_ten_snippets = [snippet for snippet, _ in initial_results]
+        llm_results = rank_snippets(user_input, top_ten_snippets)
+
+    return render_template("index.html", initial_results=initial_results, llm_results=llm_results)
 
 if __name__ == "__main__":
     app.run(debug=True)
