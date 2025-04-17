@@ -8,3 +8,4 @@ pydantic
 openai
 flask
 transformers
+ollama
