@@ -50,7 +50,7 @@ For questions or collaboration inquiries, please contact any team member listed 
 ## Benchmarking
 Note: This should be done in CodeSearch
 
-## Data Download
+### Data Download
 
 #### 1. AdvTest dataset
 
@@ -86,12 +86,12 @@ cd ../..
 ```
 
 
-## Dependency 
+### Dependency 
 
 - pip install torch
 - pip install transformers
 
-## Zero-Shot Setting
+### Zero-Shot Setting
 
 We first provide scripts for zero-shot code search. The similarity between code and nl we use is cosine distance of hidden states of UniXcoder.
 
