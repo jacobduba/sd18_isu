@@ -1,8 +1,10 @@
 datasets
+tqdm
 torch
 numpy
 dataset
 typing
 pydantic
 openai
+flask
 transformers
