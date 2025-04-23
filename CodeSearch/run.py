@@ -119,7 +119,7 @@ class TextDataset(Dataset):
                 for js in json.load(f):
                     data.append(js)
 
-        for js in data[:2]:
+        for js in data[:12]:
             self.examples.append(
                 convert_examples_to_features(js, tokenizer, args))
 
@@ -288,16 +288,22 @@ def evaluate(args, model, tokenizer, file_name, eval_when_training=False):
         code_urls.append(example.url)
         code_strings.append(example.function)
 
-    ranked_snippets = []
+    new_ranked_snippets = []
     for nl_string, sort_id in zip(nl_strings, sort_ids):
         code_strings_for_llm = []
+        top_10_map = {}
         for idx in sort_id[:10]:
             code_strings_for_llm.append(code_strings[idx])
-        ranked_snippets.append(rank_snippets(nl_string, code_strings_for_llm))
-    ranked_snippets = np.concatenate(ranked_snippets, 0)
+            top_10_map[code_strings[idx]] = idx
+
+        new_top_10 = []
+        for snippet, _ in rank_snippets(nl_string, code_strings_for_llm):
+            new_top_10.append(top_10_map.get(snippet))
+        new_ranked_snippets.append([new_top_10])
+    new_ranked_snippets = np.concatenate(new_ranked_snippets, axis=0)
 
     ranks = []
-    for url, top_10 in zip(nl_urls, ranked_snippets):
+    for url, top_10 in zip(nl_urls, new_ranked_snippets):
         rank = 0
         find = False
         for idx in top_10[:10]:
