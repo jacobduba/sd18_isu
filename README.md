@@ -16,14 +16,14 @@ The implementation leverages UniXcoder for traditional code search capabilities 
 ### Prerequisites
 - UV package installer ([Installation guide](https://github.com/astral-sh/uv))
 
-### Installing Ollama 
+### Installing Ollama
    -Linux Devices:
 ```bash
    curl -fsSL https://ollama.com/install.sh | sh
 ```
    -Mac/Windows:
       Visit *https://ollama.com/download* and install OS specific version there.
-   
+
    Run Ollama and verify its running in the background
 ```bash
 ollama serve
@@ -42,17 +42,6 @@ ollama serve
    ```bash
    make install
    ```
-3. Export your API key:
-   ```bash
-   make env
-   ```
-   Then copy and paste the printed line into your terminal.
-
-   - For **Bash/Zsh**, just paste the `export` command.
-   - For **Fish shell**, run:
-     ```fish
-     set -x OPENROUTER_API_KEY your-key-here
-     ```
 
 ### Starting LLM
 1. Open a new terminal instance

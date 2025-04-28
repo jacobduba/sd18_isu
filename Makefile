@@ -23,12 +23,8 @@ clean:
 search:
 	python3 CodeSearch/search.py
 
-env:
-	@echo 'export OPENROUTER_API_KEY=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'
-
 ollama:
 	ollama run deepseek-coder-v2:latest
 
 small:
 	ollama run deepseek-r1:1.5b
-
