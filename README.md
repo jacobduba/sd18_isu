@@ -16,6 +16,19 @@ The implementation leverages UniXcoder for traditional code search capabilities 
 ### Prerequisites
 - UV package installer ([Installation guide](https://github.com/astral-sh/uv))
 
+### Installing Ollama 
+   -Linux Devices:
+```bash
+   curl -fsSL https://ollama.com/install.sh | sh
+```
+   -Mac/Windows:
+      Visit *https://ollama.com/download* and install OS specific version there.
+   
+   Run Ollama and verify its running in the background
+```bash
+ollama serve
+```
+
 ### Installation
 1. Create and activate UV environment:
    ```bash
@@ -41,6 +54,17 @@ The implementation leverages UniXcoder for traditional code search capabilities 
      set -x OPENROUTER_API_KEY your-key-here
      ```
 
+### Starting LLM
+1. Open a new terminal instance
+
+2. Run/install Model, the model we are using is deepseek-coder-v2:latest:
+```bash
+make ollama
+```
+To run a very small model
+```bash
+make small
+```
 ### Running
 Run the script that creates the data:
 ```bash
