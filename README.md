@@ -63,6 +63,10 @@ Run the code search script:
 ```bash
 make search
 ```
+If you are using the small model add the dev flag
+```bash
+make search-dev
+```
 
 ## License
 *License information to be added*

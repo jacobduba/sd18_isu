@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import time
+import sys
 
 from datasets.arrow_dataset import re
 from flask import Flask, render_template, request
@@ -21,6 +22,12 @@ client = OpenAI(
     base_url="http://127.0.0.1:11434/v1",
     api_key="CHICKEN JOCKEY (IM STUPID) api key is redundant but the openai library requires it, ollama is compatible with the library just being dumb",
 )
+#handles flag calls for dev mode, could be expanded to accept different model flags if needed
+if(sys.argv[1] == '1'):
+    model_choice = "deepseek-r1:1.5b"
+else:
+    model_choice = "deepseek-coder-v2:latest"
+
 # Scoring prompt for LLM
 SCORING_PROMPT_TEMPLATE = """
 You are an AI evaluating code snippets.
@@ -56,7 +63,7 @@ def evaluate_snippet(user_input: str, snippet: str, retries=3):
         try:
             # The max_length should be set to limit the output to a few tokens.
             completion = client.chat.completions.create(
-                model="deepseek-coder-v2",
+                model=model_choice,
                 messages=[
                     {"role": "system", "content": prompt},
                     {"role": "user", "content": snippet}],
