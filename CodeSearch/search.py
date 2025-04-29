@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import time
+import sys
 
 from datasets.arrow_dataset import re
 from flask import Flask, render_template, request
@@ -16,16 +17,16 @@ app = Flask(
     template_folder="templates",
     static_folder="static"
 )
-
-
 # Set up the OpenRouter client
 client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="http://127.0.0.1:11434/v1",
+    api_key="CHICKEN JOCKEY (IM STUPID) api key is redundant but the openai library requires it, ollama is compatible with the library just being dumb",
 )
-
-if not client.api_key:
-    raise ValueError("OpenRouter API key is missing. Set it in your environment variables.")
+#handles flag calls for dev mode, could be expanded to accept different model flags if needed
+if(sys.argv[1] == '1'):
+    model_choice = "deepseek-r1:1.5b"
+else:
+    model_choice = "deepseek-coder-v2:latest"
 
 # Scoring prompt for LLM
 SCORING_PROMPT_TEMPLATE = """
@@ -49,7 +50,7 @@ You are an AI evaluating code snippets.
 - If unsure, provide your **best numerical estimate**.
 """
 
-generator = pipeline("text-generation", model="gpt2")
+#generator = pipeline("text-generation", model="llama2")
 
 def evaluate_snippet(user_input: str, snippet: str, retries=3):
     """Evaluates a snippet locally using a text generation model to score its relevance."""
@@ -61,8 +62,16 @@ def evaluate_snippet(user_input: str, snippet: str, retries=3):
         
         try:
             # The max_length should be set to limit the output to a few tokens.
-            result = generator(prompt, max_new_tokens=10, temperature=0.2)
-            generated_text = result[0]['generated_text']
+            completion = client.chat.completions.create(
+                model=model_choice,
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": snippet}],
+                temperature=0.2,
+                max_tokens=10
+            )
+
+            generated_text = completion.choices[0].message.content
             print("\n--- Model Output ---")
             print(generated_text)
             
@@ -111,4 +120,4 @@ def search_page():
     return render_template("index.html", initial_results=initial_results, llm_results=llm_results)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True,port=5002)

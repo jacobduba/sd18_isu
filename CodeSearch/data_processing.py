@@ -119,6 +119,16 @@ def generate_embedding(
 
     store_embedding(index, code_string, embedding, cursor)
 
+def process_single_dp(dp):
+    with sqlite3.connect(DB_FILE) as conn:
+        thread_cursor = conn.cursor()
+        generate_embedding(
+            dp.func_documentation_string,
+            dp.whole_func_string,
+            dp.id,
+            thread_cursor,
+        )
+        conn.commit()
 
 def process_data(data_points: List[DataPoint], cursor: sqlite3.Cursor) -> None:
     """Processes data points in parallel and stores embeddings in SQLite."""
@@ -138,12 +148,7 @@ def process_data(data_points: List[DataPoint], cursor: sqlite3.Cursor) -> None:
             list(
                 tqdm(
                     executor.map(
-                        lambda dp: generate_embedding(
-                            dp.func_documentation_string,
-                            dp.whole_func_string,
-                            dp.id,
-                            cursor,
-                        ),
+                        process_single_dp,
                         data_points,
                     ),
                     total=len(data_points),
