@@ -38,16 +38,6 @@ from transformers import (WEIGHTS_NAME, get_linear_schedule_with_warmup,
 
 logger = logging.getLogger(__name__)
 
-from openai import OpenAI
-# Set OpenRouter API Key & Base URL
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),  # Ensure this is set in your environment
-)
-
-if not client.api_key:
-    raise ValueError("OpenRouter API key is missing. Set it in your environment variables.")
-
 
 class InputFeatures(object):
     """A single training/test features for a example."""

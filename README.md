@@ -109,7 +109,7 @@ We first provide scripts for zero-shot code search. The similarity between code 
 #### 1. AdvTest dataset
 
 ```bash
-python run.py \
+python benchmarking.py \
     --output_dir saved_models/AdvTest \
     --model_name_or_path microsoft/unixcoder-base  \
     --do_zero_shot \
@@ -128,7 +128,7 @@ python run.py \
 #### 2. CosQA dataset
 
 ```bash
-python run.py \
+python benchmarking.py \
     --output_dir saved_models/cosqa \
     --model_name_or_path microsoft/unixcoder-base  \
     --do_zero_shot \
@@ -148,7 +148,7 @@ python run.py \
 
 ```bash
 lang=python
-python run.py \
+python benchmarking.py \
     --output_dir saved_models/CSN/$lang \
     --model_name_or_path microsoft/unixcoder-base  \
     --do_zero_shot \
