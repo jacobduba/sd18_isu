@@ -23,7 +23,7 @@ clean:
 	rm -rf embeddings*
 
 search:
-	python3 CodeSearch/search.py 
+	python3 CodeSearch/search.py 0
 
 search-dev:
 	python3 CodeSearch/search.py 1
