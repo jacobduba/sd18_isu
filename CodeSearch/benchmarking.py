@@ -116,10 +116,6 @@ class TextDataset(Dataset):
                 for js in json.load(f):
                     data.append(js)
 
-        # issue is that there are 6000 code queries, and the test data is not in retrieval idx order
-        # but I wonder how accuracy is checked comparing 500 vs 6000
-        # also this is called at different times so you can't just get the code queries with matching idx
-        # unrelated? issue there is a correct segment returning zero from LLM
         for js in data:
             self.examples.append(
                 convert_examples_to_features(js, tokenizer, args))
