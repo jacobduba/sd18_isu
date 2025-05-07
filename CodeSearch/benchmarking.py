@@ -27,7 +27,7 @@ import torch
 import json
 import numpy as np
 
-from search import rank_snippets
+from search import rank_snippets_no_print
 
 from model import Model
 from torch.nn import CrossEntropyLoss, MSELoss
@@ -81,6 +81,11 @@ def convert_examples_to_features(js, tokenizer, args):
     padding_length = args.nl_length - len(nl_ids)
     nl_ids += [tokenizer.pad_token_id]*padding_length
 
+    if 'code' in js:
+        js['function'] = js['code']
+    if 'docstring_tokens' in js:
+        if 'doc' in js:
+            js['docstring_summary'] = js['doc'] + ", " + js['docstring_tokens']
     return InputFeatures(code_tokens, code_ids, nl_tokens, nl_ids, js['url'] if "url" in js else js["retrieval_idx"], js['docstring_summary'], js['function'])
 
 
@@ -104,12 +109,14 @@ class TextDataset(Dataset):
                     temp["retrieval_idx"] = js[key]
                     temp['doc'] = ""
                     temp['docstring_tokens'] = ""
+                    temp['docstring_summary'] = ""
+                    temp['code'] = key
                     data.append(temp)
             elif "json" in file_path:
                 for js in json.load(f):
                     data.append(js)
 
-        for js in data[:12]:
+        for js in data:
             self.examples.append(
                 convert_examples_to_features(js, tokenizer, args))
 
@@ -287,7 +294,7 @@ def evaluate(args, model, tokenizer, file_name, eval_when_training=False):
             top_10_map[code_strings[idx]] = idx
 
         new_top_10 = []
-        for snippet, _ in rank_snippets(nl_string, code_strings_for_llm):
+        for snippet, _ in rank_snippets_no_print(nl_string, code_strings_for_llm):
             new_top_10.append(top_10_map.get(snippet))
         new_ranked_snippets.append([new_top_10])
     new_ranked_snippets = np.concatenate(new_ranked_snippets, axis=0)
