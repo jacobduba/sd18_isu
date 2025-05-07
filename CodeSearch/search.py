@@ -95,11 +95,53 @@ def evaluate_snippet(user_input: str, snippet: str, retries=3):
     return 0  # Default fallback score
 
 
+def evaluate_snippet_no_print(user_input: str, snippet: str, retries=3):
+    """Evaluates a snippet locally using a text generation model to score its relevance."""
+    prompt = SCORING_PROMPT_TEMPLATE.format(query=user_input, snippet=snippet)
+
+    for attempt in range(retries):
+
+        try:
+            # The max_length should be set to limit the output to a few tokens.
+            completion = client.chat.completions.create(
+                model=model_choice,
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": snippet}],
+                temperature=0.2,
+                max_tokens=10
+            )
+
+            generated_text = completion.choices[0].message.content
+
+            # We expect only a number: try extracting the first integer between 0 and 10.
+            match = re.search(r'\b([0-9]|10)\b', generated_text)
+            if match:
+                score = float(match.group(1))
+                print(f"Extracted Score: {score}")
+                return max(0, min(10, score))
+            else:
+                print(f"Warning: Unable to find score in output (Attempt {attempt + 1}). Retrying...")
+                time.sleep(1)
+                continue
+
+        except Exception as e:
+            print(f"Error during local inference (Attempt {attempt + 1}): {e}")
+            time.sleep(1)
+            continue
+
+    print("Final Warning: No valid score after multiple attempts. Returning score 0.")
+    return 0  # Default fallback score
+
 def rank_snippets(user_input: str, snippets: list):
     scored_snippets = [(snippet, evaluate_snippet(user_input, snippet)) for snippet in snippets]
     scored_snippets.sort(key=lambda x: x[1], reverse=True)
     return scored_snippets
 
+def rank_snippets_no_print(user_input: str, snippets: list):
+    scored_snippets = [(snippet, evaluate_snippet_no_print(user_input, snippet)) for snippet in snippets]
+    scored_snippets.sort(key=lambda x: x[1], reverse=True)
+    return scored_snippets
 
 @app.route("/", methods=["GET", "POST"])
 def search_page():
